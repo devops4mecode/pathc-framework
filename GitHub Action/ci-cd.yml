@@ -1,0 +1,70 @@
+# GitHub Actions (ci-cd.yml)
+name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+
+    - name: Build with Maven
+      run: mvn package -DskipTests
+
+  sca:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Run Static Code Analysis
+      run: mvn sonar:sonar
+
+  unit-test:
+    runs-on: ubuntu-latest
+    needs: sca
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Run Unit Tests
+      run: mvn test
+
+  create-artifact:
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: java-website-artifact
+        path: target/*.war
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: create-artifact
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: java-website-artifact
+
+    - name: Deploy to Tomcat Server
+      run: |
+        scp target/*.war user@your-tomcat-server:/path/to/tomcat/webapps
+        ssh user@your-tomcat-server "sudo systemctl restart tomcat"

@@ -1,0 +1,58 @@
+# Azure Pipelines (azure-pipelines.yml)
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    steps:
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'package'
+        options: '-DskipTests'
+
+- stage: SCA
+  jobs:
+  - job: SCA
+    steps:
+    - script: |
+        echo "Running Static Code Analysis..."
+        mvn sonar:sonar
+      displayName: "Static Code Analysis"
+
+- stage: UnitTest
+  jobs:
+  - job: UnitTest
+    steps:
+    - script: |
+        echo "Running Unit Tests..."
+        mvn test
+      displayName: "Unit Tests"
+
+- stage: Artifact
+  jobs:
+  - job: CreateArtifact
+    steps:
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'target/*.war'
+        artifactName: 'JavaWebsiteArtifact'
+
+- stage: Deploy
+  dependsOn: Artifact
+  jobs:
+  - job: Deploy
+    steps:
+    - script: |
+        echo "Deploying to Tomcat Server..."
+        scp target/*.war user@your-tomcat-server:/path/to/tomcat/webapps
+        ssh user@your-tomcat-server "sudo systemctl restart tomcat"
+      displayName: "Deploy to Tomcat"
